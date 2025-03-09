@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import Start from "./components/Start";
@@ -7,6 +7,7 @@ import { initializeApp } from "firebase/app";
 import { initializeAuth, getReactNativePersistence } from "firebase/auth";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getFirestore } from "firebase/firestore";
+import NetInfo from "@react-native-community/netinfo"; // Import NetInfo for connectivity detection
 
 // 🔥 Firebase configuration
 const firebaseConfig = {
@@ -32,6 +33,19 @@ const db = getFirestore(app);
 const Stack = createNativeStackNavigator();
 
 const App = () => {
+  const [isConnected, setIsConnected] = useState(true);
+
+  // Listen to network connectivity status
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener((state) => {
+      setIsConnected(state.isConnected); // Update state with connection status
+    });
+
+    return () => {
+      unsubscribe(); // Cleanup listener on component unmount
+    };
+  }, []);
+
   return (
     <NavigationContainer>
       <Stack.Navigator initialRouteName="Start">
@@ -42,7 +56,7 @@ const App = () => {
           name="Chat"
           options={({ route }) => ({ title: route.params.name })}
         >
-          {(props) => <Chat {...props} db={db} />}
+          {(props) => <Chat {...props} db={db} isConnected={isConnected} />}
         </Stack.Screen>
       </Stack.Navigator>
     </NavigationContainer>

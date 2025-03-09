@@ -1,24 +1,31 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { View, Platform, KeyboardAvoidingView, StyleSheet } from "react-native";
+import { View, Platform, KeyboardAvoidingView, StyleSheet, Text } from "react-native";
 import { GiftedChat, InputToolbar } from "react-native-gifted-chat";
 import { collection, addDoc, query, orderBy, onSnapshot } from "firebase/firestore";
-import { useNetInfo } from "@react-native-community/netinfo"; // to check network status
+import { useNetInfo } from "@react-native-community/netinfo"; // for network connectivity
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const Chat = ({ route, db }) => {
     const { userId, name, bgColor } = route.params;
     const [messages, setMessages] = useState([]);
-    const [isConnected, setIsConnected] = useState(true); // Track the connection status
+    const [isConnected, setIsConnected] = useState(true); // Track network connection status
+    const [offlineMessage, setOfflineMessage] = useState(""); // State to store offline message
 
-    // Get network info
-    const netInfo = useNetInfo();
+    const netInfo = useNetInfo(); // Get network info
 
-    // Track connectivity changes
+    // Monitor network status changes
     useEffect(() => {
         setIsConnected(netInfo.isConnected);
+        if (!netInfo.isConnected) {
+            // If offline, show a message to notify the user
+            setOfflineMessage("You are offline. Messages will be stored locally.");
+        } else {
+            // If back online, remove the offline message
+            setOfflineMessage("");
+        }
     }, [netInfo.isConnected]);
 
-    // 📡 Real-time listener for Firestore messages
+    // 📡 Real-time listener for Firestore messages when connected
     useEffect(() => {
         if (isConnected) {
             // When connected, get messages from Firestore
@@ -49,14 +56,14 @@ const Chat = ({ route, db }) => {
         }
     }, [isConnected]);
 
-    // ✉️ Send messages to Firestore
+    // ✉️ Send messages to Firestore when online
     const onSend = useCallback((newMessages = []) => {
         const message = newMessages[0]; // Get the latest message
 
         if (isConnected) {
-            // Send message to Firestore
+            // If online, send message to Firestore
             addDoc(collection(db, "messages"), message).then(() => {
-                // 📩 Assistant replies after user's message
+                // Assistant replies after user's message
                 const assistantReply = {
                     _id: Math.random().toString(36).substring(7), // Random ID for assistant's reply
                     text: `Hello ${name}, How can I help you?`,
@@ -71,24 +78,29 @@ const Chat = ({ route, db }) => {
         }
     }, [isConnected, messages]);
 
-    // Function to render InputToolbar based on network status
+    // Function to render InputToolbar based on connection status
     const renderInputToolbar = (props) => {
         if (isConnected) {
-            // If connected, show the InputToolbar
             return <InputToolbar {...props} />;
         } else {
-            // If offline, do not show InputToolbar (prevent sending messages)
-            return null;
+            return null; // Hide InputToolbar if offline
         }
     };
 
     return (
         <View style={[styles.container, { backgroundColor: bgColor }]}>
+            {/* Show offline message if the user is offline */}
+            {offlineMessage ? (
+                <View style={styles.offlineMessageContainer}>
+                    <Text style={styles.offlineMessageText}>{offlineMessage}</Text>
+                </View>
+            ) : null}
+
             <GiftedChat
                 messages={messages}
                 onSend={(messages) => onSend(messages)}
                 user={{ _id: userId, name }}
-                renderInputToolbar={renderInputToolbar} // Use custom renderInputToolbar
+                renderInputToolbar={renderInputToolbar} // Conditionally render InputToolbar
             />
 
             {/* Adjust UI for keyboard on iOS and Android */}
@@ -101,6 +113,18 @@ const Chat = ({ route, db }) => {
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
+    offlineMessageContainer: {
+        padding: 10,
+        backgroundColor: "#FF0000",
+        textAlign: "center",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    offlineMessageText: {
+        color: "#FFFFFF",
+        fontSize: 16,
+        textAlign: "center",
+    },
 });
 
 export default Chat;

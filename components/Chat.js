@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { View, Platform, KeyboardAvoidingView, StyleSheet, Text } from "react-native";
+import { View, Platform, KeyboardAvoidingView, StyleSheet, Text, Image } from "react-native";
 import { GiftedChat, InputToolbar } from "react-native-gifted-chat";
 import { collection, addDoc, query, orderBy, onSnapshot } from "firebase/firestore";
 import { useNetInfo } from "@react-native-community/netinfo"; // for network connectivity
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import CustomActions from "./CustomActions"; // Import CustomActions component
+import MapView from "react-native-maps";
 
 const Chat = ({ route, db }) => {
     const { userId, name, bgColor } = route.params;
@@ -17,10 +19,8 @@ const Chat = ({ route, db }) => {
     useEffect(() => {
         setIsConnected(netInfo.isConnected);
         if (!netInfo.isConnected) {
-            // If offline, show a message to notify the user
             setOfflineMessage("You are offline. Messages will be stored locally.");
         } else {
-            // If back online, remove the offline message
             setOfflineMessage("");
         }
     }, [netInfo.isConnected]);
@@ -28,26 +28,25 @@ const Chat = ({ route, db }) => {
     // 📡 Real-time listener for Firestore messages when connected
     useEffect(() => {
         if (isConnected) {
-            // When connected, get messages from Firestore
             const q = query(collection(db, "messages"), orderBy("createdAt", "desc"));
             const unsubscribe = onSnapshot(q, (snapshot) => {
                 const fetchedMessages = snapshot.docs.map((doc) => {
                     const data = doc.data();
                     return {
                         _id: doc.id,
-                        text: data.text,
-                        createdAt: data.createdAt.toDate(), // Convert Firestore timestamp to Date
+                        text: data.text || "",
+                        createdAt: data.createdAt?.toDate() || new Date(),
                         user: data.user,
+                        image: data.image || null,
+                        location: data.location || null,
                     };
                 });
                 setMessages(fetchedMessages);
-                // Cache messages in AsyncStorage
                 AsyncStorage.setItem("messages", JSON.stringify(fetchedMessages));
             });
 
-            return () => unsubscribe(); // Cleanup listener when component unmounts
+            return () => unsubscribe();
         } else {
-            // If offline, load cached messages from AsyncStorage
             AsyncStorage.getItem("messages").then((cachedMessages) => {
                 if (cachedMessages) {
                     setMessages(JSON.parse(cachedMessages));
@@ -58,38 +57,59 @@ const Chat = ({ route, db }) => {
 
     // ✉️ Send messages to Firestore when online
     const onSend = useCallback((newMessages = []) => {
-        const message = newMessages[0]; // Get the latest message
+        const message = newMessages[0];
 
         if (isConnected) {
-            // If online, send message to Firestore
             addDoc(collection(db, "messages"), message).then(() => {
-                // Assistant replies after user's message
                 const assistantReply = {
-                    _id: Math.random().toString(36).substring(7), // Random ID for assistant's reply
+                    _id: Math.random().toString(36).substring(7),
                     text: `Hello ${name}, How can I help you?`,
                     createdAt: new Date(),
                     user: { _id: "assistant", name: "Chat Assistant" },
                 };
-                addDoc(collection(db, "messages"), assistantReply); // Send assistant's reply
+                addDoc(collection(db, "messages"), assistantReply);
             });
         } else {
-            // If offline, store the message in AsyncStorage
             AsyncStorage.setItem("messages", JSON.stringify([...messages, message]));
         }
     }, [isConnected, messages]);
+
+    // 📍 Render custom messages (Images & Location)
+    const renderCustomView = (props) => {
+        const { currentMessage } = props;
+        if (currentMessage.image) {
+            return (
+                <View style={styles.imageContainer}>
+                    <Image source={{ uri: currentMessage.image }} style={styles.image} />
+                </View>
+            );
+        } else if (currentMessage.location) {
+            return (
+                <MapView
+                    style={styles.map}
+                    region={{
+                        latitude: currentMessage.location.latitude,
+                        longitude: currentMessage.location.longitude,
+                        latitudeDelta: 0.0922,
+                        longitudeDelta: 0.0421,
+                    }}
+                />
+            );
+        }
+        return null;
+    };
 
     // Function to render InputToolbar based on connection status
     const renderInputToolbar = (props) => {
         if (isConnected) {
             return <InputToolbar {...props} />;
         } else {
-            return null; // Hide InputToolbar if offline
+            return null;
         }
     };
 
     return (
         <View style={[styles.container, { backgroundColor: bgColor }]}>
-            {/* Show offline message if the user is offline */}
             {offlineMessage ? (
                 <View style={styles.offlineMessageContainer}>
                     <Text style={styles.offlineMessageText}>{offlineMessage}</Text>
@@ -100,10 +120,11 @@ const Chat = ({ route, db }) => {
                 messages={messages}
                 onSend={(messages) => onSend(messages)}
                 user={{ _id: userId, name }}
-                renderInputToolbar={renderInputToolbar} // Conditionally render InputToolbar
+                renderInputToolbar={renderInputToolbar}
+                renderActions={(props) => <CustomActions {...props} onSend={onSend} />}
+                renderCustomView={renderCustomView}
             />
 
-            {/* Adjust UI for keyboard on iOS and Android */}
             {(Platform.OS === "android" || Platform.OS === "ios") && (
                 <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} />
             )}
@@ -124,6 +145,21 @@ const styles = StyleSheet.create({
         color: "#FFFFFF",
         fontSize: 16,
         textAlign: "center",
+    },
+    imageContainer: {
+        borderRadius: 10,
+        overflow: "hidden",
+        marginVertical: 5,
+    },
+    image: {
+        width: 200,
+        height: 150,
+        resizeMode: "cover",
+    },
+    map: {
+        width: 200,
+        height: 150,
+        borderRadius: 10,
     },
 });
 

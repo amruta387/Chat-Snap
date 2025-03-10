@@ -1,12 +1,5 @@
 import React, { useState } from "react";
-import {
-    View,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    ImageBackground,
-    StyleSheet,
-} from "react-native";
+import { View, Text, TextInput, TouchableOpacity, ImageBackground, StyleSheet } from "react-native";
 import { getAuth, signInAnonymously } from "firebase/auth";
 
 const Start = ({ navigation, auth }) => {
@@ -19,8 +12,8 @@ const Start = ({ navigation, auth }) => {
             .then((userCredential) => {
                 const user = userCredential.user;
                 navigation.navigate("Chat", {
-                    userId: user.uid, // Pass user ID
-                    name: name || "Anonymous", // Default to "Anonymous" if name is empty
+                    userId: user.uid, 
+                    name: name || "Anonymous", 
                     bgColor,
                 });
             })

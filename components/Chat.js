@@ -34,16 +34,28 @@ const Chat = ({ route, db }) => {
                     const data = doc.data();
                     return {
                         _id: doc.id,
-                        text: data.text || "",
+                        text: data.text,
                         createdAt: data.createdAt?.toDate() || new Date(),
                         user: data.user,
-                        image: data.image || null,
-                        location: data.location || null,
+                        image: data.image,
+                        location: data.location,
                     };
                 });
                 setMessages(fetchedMessages);
                 AsyncStorage.setItem("messages", JSON.stringify(fetchedMessages));
             });
+            // 📩 Add System Message when user enters chat
+            setMessages((previousMessages) =>
+                GiftedChat.append(previousMessages, [
+                    {
+                        _id: "system-message",
+                        text: "You have entered the chat",
+                        createdAt: new Date(),
+                        system: true,
+                    },
+                ])
+            );
+
 
             return () => unsubscribe();
         } else {

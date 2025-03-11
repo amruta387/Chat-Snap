@@ -55,8 +55,6 @@ const Chat = ({ route, db }) => {
                     },
                 ])
             );
-
-
             return () => unsubscribe();
         } else {
             AsyncStorage.getItem("messages").then((cachedMessages) => {

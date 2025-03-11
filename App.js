@@ -17,9 +17,9 @@ const firebaseConfig = {
   apiKey: "AIzaSyAlDMGPTPHJ_BksxGzJ-_nU0fYcgHbtn_U",
   authDomain: "chatsnap-e9072.firebaseapp.com",
   projectId: "chatsnap-e9072",
-  storageBucket: "chatsnap-e9072.appspot.com", 
+  storageBucket: "chatsnap-e9072.firebasestorage.app",
   messagingSenderId: "373817032765",
-  appId: "1:373817032765:web:f88f88832ed23cd1b6ea54",
+  appId: "1:373817032765:web:f88f88832ed23cd1b6ea54"
 };
 
 // 🔥 Initialize Firebase
